@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>Generador de Actas PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f1f45 0%, #1e3a7b 50%, #0f1f45 100%);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #222;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app {
+    display: flex;
+    justify-content: center;
+    padding: 20px 16px 60px;
+    min-height: 100vh;
+  }
+  .screen {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card {
+    background: rgba(255,255,255,0.97);
+    border-radius: 20px;
+    padding: 28px 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .icon-big { font-size: 48px; text-align: center; }
+  h1, h2 { font-size: 22px; font-weight: 800; color: #0f1f45; text-align: center; }
+  .subtitle { font-size: 14px; color: #666; text-align: center; }
+  .acta-badge {
+    background: #1e3a7b; color: white; border-radius: 20px;
+    padding: 6px 18px; font-size: 13px; font-weight: 700;
+    text-align: center; letter-spacing: 1px; align-self: center;
+  }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .label { font-size: 11px; font-weight: 700; color: #999; letter-spacing: 1px; }
+  .input-row {
+    display: flex; align-items: center;
+    border: 2px solid #d0d9ee; border-radius: 10px; overflow: hidden;
+  }
+  .input-prefix {
+    background: #f0f4ff; padding: 12px 14px;
+    font-weight: 700; color: #1e3a7b; font-size: 15px;
+    border-right: 2px solid #d0d9ee; white-space: nowrap;
+  }
+  .input-suffix {
+    background: #f0f4ff; padding: 12px 14px;
+    font-weight: 700; color: #1e3a7b; font-size: 15px;
+    border-left: 2px solid #d0d9ee; white-space: nowrap;
+  }
+  .text-input {
+    flex: 1; border: none; outline: none;
+    padding: 12px 14px; font-size: 18px; font-weight: 700;
+    color: #0f1f45; background: white; font-family: inherit;
+    -webkit-appearance: none;
+  }
+  .btn {
+    background: #1e3a7b; color: white; border: none;
+    border-radius: 12px; padding: 14px 20px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    width: 100%; font-family: inherit;
+    -webkit-appearance: none; transition: opacity 0.2s;
+    touch-action: manipulation;
+  }
+  .btn:disabled { opacity: 0.4; }
+  .btn-green { background: #1a7b4a; }
+  .btn-ghost {
+    background: transparent; color: #1e3a7b;
+    border: 2px solid #1e3a7b; flex: 0; width: auto;
+  }
+  .btn-row { display: flex; gap: 8px; }
+
+  /* Upload button */
+  .upload-label {
+    border: 2.5px dashed #b0c0e0; border-radius: 12px;
+    padding: 22px 16px; background: #f8f9ff;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    color: #1e3a7b; font-weight: 600; font-size: 15px;
+    cursor: pointer; text-align: center;
+    touch-action: manipulation;
+  }
+  .upload-label .icon { font-size: 32px; }
+  .upload-label .hint { font-size: 12px; opacity: 0.65; }
+  input[type=file] { display: none !important; }
+
+  /* Preview */
+  .preview-box { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .preview-img {
+    width: 100%; max-height: 230px; object-fit: contain;
+    border-radius: 10px; border: 2px solid #d0d9ee;
+  }
+  .change-btn {
+    background: none; border: 1.5px solid #aaa;
+    border-radius: 8px; padding: 6px 18px;
+    cursor: pointer; color: #555; font-size: 13px;
+    font-family: inherit; touch-action: manipulation;
+  }
+
+  /* Textarea */
+  textarea {
+    border: 2px solid #d0d9ee; border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; color: #222;
+    resize: vertical; outline: none; font-family: inherit;
+    width: 100%; -webkit-appearance: none;
+    line-height: 1.5;
+  }
+  textarea:focus { border-color: #1e3a7b; }
+
+  /* Add box */
+  .add-box {
+    background: #f4f7ff; border-radius: 14px;
+    padding: 16px; display: flex; flex-direction: column;
+    gap: 12px; border: 1.5px solid #d0d9ee;
+  }
+  .add-box-title { font-weight: 800; color: #1e3a7b; font-size: 13px; letter-spacing: 0.5px; }
+
+  /* Photo list */
+  .photo-list { display: flex; flex-direction: column; gap: 8px; }
+  .photo-item {
+    display: flex; align-items: center; gap: 10px;
+    background: #f0f4ff; border-radius: 10px;
+    padding: 8px 10px; border: 1px solid #d0d9ee;
+  }
+  .thumb { width: 50px; height: 42px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+  .photo-meta { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .photo-num { font-size: 11px; font-weight: 800; color: #1e3a7b; letter-spacing: 0.5px; }
+  .photo-desc { font-size: 12px; color: #444; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .remove-btn {
+    background: none; border: none; cursor: pointer;
+    color: #c0392b; font-size: 17px; font-weight: 700;
+    padding: 4px 6px; flex-shrink: 0; font-family: inherit;
+    touch-action: manipulation;
+  }
+
+  /* Summary */
+  .summary-box {
+    background: #f4f7ff; border-radius: 12px;
+    padding: 14px 16px; display: flex;
+    flex-direction: column; gap: 10px; border: 1.5px solid #d0d9ee;
+  }
+  .summary-row { display: flex; justify-content: space-between; font-size: 14px; color: #333; font-weight: 600; }
+
+  /* Mini preview */
+  .mini-preview { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .mini-card {
+    flex-shrink: 0; width: 88px; display: flex; flex-direction: column;
+    gap: 4px; background: #f4f7ff; border-radius: 8px;
+    padding: 7px; border: 1px solid #d0d9ee;
+  }
+  .mini-img { width: 100%; height: 58px; object-fit: cover; border-radius: 5px; }
+  .mini-label { font-size: 10px; font-weight: 800; color: #1e3a7b; }
+  .mini-desc { font-size: 9px; color: #555; line-height: 1.3; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #1a7b4a; color: white; padding: 12px 24px;
+    border-radius: 24px; font-weight: 700; font-size: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.3); opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; z-index: 999;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+
+  /* Falencias dropdown */
+  .desc-section { display: flex; flex-direction: column; gap: 8px; }
+  .desc-label { font-size: 11px; font-weight: 700; color: #999; letter-spacing: 1px; }
+  .select-wrap { position: relative; }
+  .falencia-select {
+    width: 100%; padding: 11px 36px 11px 14px;
+    border: 2px solid #d0d9ee; border-radius: 10px;
+    font-size: 13px; font-family: inherit; color: #0f1f45;
+    background: white; appearance: none; -webkit-appearance: none;
+    outline: none; cursor: pointer; line-height: 1.4;
+  }
+  .falencia-select:focus { border-color: #1e3a7b; }
+  .select-arrow {
+    position: absolute; right: 12px; top: 50%;
+    transform: translateY(-50%); pointer-events: none;
+    color: #1e3a7b; font-size: 16px;
+  }
+  .divider-or {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: 1px;
+  }
+  .divider-or::before, .divider-or::after {
+    content: ''; flex: 1; height: 1px; background: #d0d9ee;
+  }
+
+  /* Spinner */
+  .spinner {
+    width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.8s linear infinite; display: inline-block;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app"><div class="screen" id="screen"></div></div>
+<div id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+const state = {
+  step: 'acta',       // acta | photos | filename | preview
+  actaNum: '',
+  photos: [],         // [{img: dataURL, desc: string}]
+  fileName: '',
+  pendingImg: null,
+  pendingDesc: '',
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg, color = '#1a7b4a') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.background = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function compressImage(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1200;
+        const ratio = Math.min(1, MAX / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const screen = $('screen');
+  if (state.step === 'acta')     screen.innerHTML = tmplActa();
+  if (state.step === 'photos')   screen.innerHTML = tmplPhotos();
+  if (state.step === 'filename') screen.innerHTML = tmplFilename();
+  if (state.step === 'preview')  screen.innerHTML = tmplPreview();
+  bindEvents();
+}
+
+// ─── Templates ───────────────────────────────────────────────────────────────
+function tmplActa() {
+  return `
+  <div class="card">
+    <div class="icon-big">📋</div>
+    <h1>Registro de Acta</h1>
+    <p class="subtitle">Ingresá el número de acta para comenzar</p>
+    <div class="input-group">
+      <label class="label">NÚMERO DE ACTA</label>
+      <div class="input-row">
+        <span class="input-prefix">Acta N°</span>
+        <input class="text-input" id="actaInput" type="number" inputmode="numeric"
+          placeholder="32" value="${state.actaNum}" autocomplete="off"/>
+      </div>
+    </div>
+    <button class="btn" id="btnActaContinue">Continuar →</button>
+  </div>`;
+}
+
+function tmplPhotos() {
+  const photoItems = state.photos.map((p, i) => `
+    <div class="photo-item">
+      <img class="thumb" src="${p.img}" alt=""/>
+      <div class="photo-meta">
+        <span class="photo-num">FOTO N° ${i+1}</span>
+        <span class="photo-desc">${escHtml(p.desc)}</span>
+      </div>
+      <button class="remove-btn" data-idx="${i}">✕</button>
+    </div>`).join('');
+
+  const pendingSection = state.pendingImg ? `
+    <div class="preview-box">
+      <img class="preview-img" src="${state.pendingImg}" alt="preview"/>
+      <button class="change-btn" id="btnChangeImg">Cambiar imagen</button>
+    </div>` : `
+    <label class="upload-label" for="fileInput">
+      <span class="icon">📷</span>
+      <span>Tomar foto o elegir de galería</span>
+      <span class="hint">JPG · PNG · HEIC</span>
+    </label>`;
+
+  return `
+  <div class="card">
+    <div class="acta-badge">ACTA N° ${escHtml(state.actaNum)}</div>
+    <h2>Agregar Fotos</h2>
+    <p class="subtitle">${state.photos.length === 0
+      ? 'Seleccioná la primera foto'
+      : `${state.photos.length} foto${state.photos.length > 1 ? 's' : ''} agregada${state.photos.length > 1 ? 's' : ''}`}</p>
+
+    ${state.photos.length > 0 ? `<div class="photo-list">${photoItems}</div>` : ''}
+
+    <div class="add-box">
+      <div class="add-box-title">📷 FOTO N° ${state.photos.length + 1}</div>
+      ${pendingSection}
+      <input type="file" id="fileInput" accept="image/*"/>
+      <div class="desc-section">
+        <label class="desc-label">DESCRIPCIÓN TÉCNICA</label>
+        <div class="select-wrap">
+          <select class="falencia-select" id="falenciaSelect">
+            <option value="">— Seleccionar falencia predefinida —</option>
+            <option>Disposicion de conductores sin canalizar.</option>
+            <option>Derivación irregular de conductores sin canalizar.</option>
+            <option>Disposición de conductores sin canalizar expuestos al alcance del público.</option>
+            <option>Derivación irregular de conductores sin canalizar expuestos al alcance del público.</option>
+            <option>Tapa de caja de paso con sujeción deficiente.</option>
+            <option>Tapa de caja de paso con sujeción deficiente con exposición de conductores al alcance del público.</option>
+            <option>Tapa de caja de paso faltante.</option>
+            <option>Tapa de caja de paso faltante con exposición de conductores al alcance del público.</option>
+            <option>Tapa de caja de conexiones con sujeción deficiente.</option>
+            <option>Tapa de caja de conexiones con sujeción deficiente con exposición de conductores al alcance del público.</option>
+            <option>Tapa de caja de conexiones faltante.</option>
+            <option>Tapa de caja de conexiones faltante con exposición de conductores al alcance del público.</option>
+            <option>Tablero principal con tapa deteriorada o sin cerradura o faltante.</option>
+            <option>Tablero principal con tapa deteriorada, o sin cerradura, o faltante, con exposición de conductores al alcance del público.</option>
+            <option>Tablero principal con protecciones deficientes o faltantes.</option>
+            <option>Tablero seccional con tapa deteriorada, o sin cerradura, o faltante.</option>
+            <option>Tablero seccional con tapa deteriorada, o sin cerradura, o faltante, con exposición de conductores al alcance del público.</option>
+            <option>Gabinete de medidores con tapa deteriorada o faltante.</option>
+            <option>Gabinete de medidores con tapa deteriorada, o faltante, con exposición de conductores al alcance del público.</option>
+            <option>Puesto de transformación L y F (cubicle) con tapa deteriorada o faltante.</option>
+            <option>Puesto de transformación L y F (cubicle) con tapa deteriorada, o faltante, con exposición de conductores al alcance del público.</option>
+          </select>
+          <span class="select-arrow">▾</span>
+        </div>
+        <div class="divider-or">O ESCRIBIR MANUALMENTE</div>
+        <textarea id="descInput" rows="3"
+          placeholder="Escribí una descripción técnica personalizada...">${escHtml(state.pendingDesc)}</textarea>
+      </div>
+      <button class="btn btn-green" id="btnAddPhoto">+ Agregar foto</button>
+    </div>
+
+    ${state.photos.length > 0 ? `
+    <button class="btn" id="btnFinalize">
+      Finalizar (${state.photos.length} foto${state.photos.length > 1 ? 's' : ''}) →
+    </button>` : ''}
+  </div>`;
+}
+
+function tmplFilename() {
+  const name = state.fileName || `Acta_${state.actaNum}`;
+  return `
+  <div class="card">
+    <div class="icon-big">💾</div>
+    <h2>Nombre del archivo</h2>
+    <p class="subtitle">¿Cómo querés guardar el PDF?</p>
+    <div class="input-group">
+      <label class="label">NOMBRE DEL ARCHIVO</label>
+      <div class="input-row">
+        <input class="text-input" id="fileNameInput" type="text"
+          value="${escHtml(name)}" autocomplete="off"/>
+        <span class="input-suffix">.pdf</span>
+      </div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-row"><span>📋 Acta</span><span>N° ${escHtml(state.actaNum)}</span></div>
+      <div class="summary-row"><span>📷 Fotos</span><span>${state.photos.length}</span></div>
+      <div class="summary-row"><span>📄 Páginas</span><span>${Math.ceil(state.photos.length / 2)}</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btnBackToPhotos">← Volver</button>
+      <button class="btn" id="btnGoPreview" style="flex:1">Generar PDF →</button>
+    </div>
+  </div>`;
+}
+
+function tmplPreview() {
+  const miniCards = state.photos.map((p, i) => `
+    <div class="mini-card">
+      <img class="mini-img" src="${p.img}" alt=""/>
+      <div class="mini-label">Foto ${i+1}</div>
+      <div class="mini-desc">${escHtml(p.desc.substring(0,45))}${p.desc.length>45?'…':''}</div>
+    </div>`).join('');
+
+  return `
+  <div class="card">
+    <div class="icon-big">📄</div>
+    <h2>Listo para generar</h2>
+    <div class="summary-box">
+      <div class="summary-row"><span>📋 Acta</span><span>N° ${escHtml(state.actaNum)}</span></div>
+      <div class="summary-row"><span>📷 Fotos</span><span>${state.photos.length}</span></div>
+      <div class="summary-row"><span>💾 Archivo</span><span>${escHtml(state.fileName)}.pdf</span></div>
+      <div class="summary-row"><span>📄 Páginas</span><span>${Math.ceil(state.photos.length / 2)}</span></div>
+    </div>
+    <div class="mini-preview">${miniCards}</div>
+    <button class="btn btn-green" id="btnGeneratePDF" style="font-size:16px;padding:15px">
+      ⬇️ Descargar PDF
+    </button>
+    <button class="btn btn-ghost" id="btnNewActa" style="width:100%">🔄 Nuevo acta</button>
+  </div>`;
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+function bindEvents() {
+  // ACTA screen
+  const btnActa = $('btnActaContinue');
+  if (btnActa) {
+    btnActa.onclick = () => {
+      const v = $('actaInput').value.trim();
+      if (!v) return showToast('Ingresá el número de acta', '#c0392b');
+      state.actaNum = v;
+      state.step = 'photos';
+      render();
+    };
+    $('actaInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') btnActa.click();
+    });
+  }
+
+  // PHOTOS screen
+  const fileInput = $('fileInput');
+  if (fileInput) {
+    fileInput.onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      showToast('Cargando imagen…', '#1e3a7b');
+      state.pendingImg = await compressImage(file);
+      state.pendingDesc = '';
+      render();
+    };
+  }
+
+  const btnChangeImg = $('btnChangeImg');
+  if (btnChangeImg) {
+    btnChangeImg.onclick = () => {
+      state.pendingImg = null;
+      render();
+    };
+  }
+
+  const falenciaSelect = $('falenciaSelect');
+  if (falenciaSelect) {
+    // Pre-select if state already has a matching option
+    const opts = Array.from(falenciaSelect.options);
+    const match = opts.find(o => o.value === state.pendingDesc);
+    if (match) falenciaSelect.value = state.pendingDesc;
+
+    falenciaSelect.onchange = e => {
+      const val = e.target.value;
+      if (val) {
+        state.pendingDesc = val;
+        const ta = $('descInput');
+        if (ta) ta.value = val;
+      }
+    };
+  }
+
+  const descInput = $('descInput');
+  if (descInput) {
+    descInput.oninput = e => {
+      state.pendingDesc = e.target.value;
+      // Reset select if user types manually
+      const sel = $('falenciaSelect');
+      if (sel) sel.value = '';
+    };
+  }
+
+  const btnAdd = $('btnAddPhoto');
+  if (btnAdd) {
+    btnAdd.onclick = () => {
+      const desc = $('descInput') ? $('descInput').value.trim() : '';
+      if (!state.pendingImg) return showToast('Seleccioná una imagen primero', '#c0392b');
+      if (!desc) return showToast('Escribí la descripción técnica', '#c0392b');
+      state.photos.push({ img: state.pendingImg, desc });
+      state.pendingImg = null;
+      state.pendingDesc = '';
+      showToast(`✓ Foto ${state.photos.length} agregada`);
+      render();
+    };
+  }
+
+  // Remove buttons
+  document.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.dataset.idx);
+      state.photos.splice(idx, 1);
+      render();
+    };
+  });
+
+  const btnFinalize = $('btnFinalize');
+  if (btnFinalize) {
+    btnFinalize.onclick = () => {
+      state.fileName = `Acta_${state.actaNum}`;
+      state.step = 'filename';
+      render();
+    };
+  }
+
+  // FILENAME screen
+  const btnBackToPhotos = $('btnBackToPhotos');
+  if (btnBackToPhotos) btnBackToPhotos.onclick = () => { state.step = 'photos'; render(); };
+
+  const btnGoPreview = $('btnGoPreview');
+  if (btnGoPreview) {
+    btnGoPreview.onclick = () => {
+      const name = $('fileNameInput').value.trim();
+      if (!name) return showToast('Ingresá el nombre del archivo', '#c0392b');
+      state.fileName = name;
+      state.step = 'preview';
+      render();
+    };
+  }
+
+  // PREVIEW screen
+  const btnGen = $('btnGeneratePDF');
+  if (btnGen) {
+    btnGen.onclick = () => generatePDF();
+  }
+
+  const btnNew = $('btnNewActa');
+  if (btnNew) {
+    btnNew.onclick = () => {
+      state.step = 'acta';
+      state.actaNum = '';
+      state.photos = [];
+      state.fileName = '';
+      state.pendingImg = null;
+      state.pendingDesc = '';
+      render();
+    };
+  }
+}
+
+// ─── PDF Generation ───────────────────────────────────────────────────────────
+async function generatePDF() {
+  const btn = $('btnGeneratePDF');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generando…';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297, margin = 18;
+    const innerW = pageW - margin * 2;
+    const totalPages = Math.ceil(state.photos.length / 2);
+
+    for (let page = 0; page < totalPages; page++) {
+      if (page > 0) doc.addPage();
+
+      // Header
+      doc.setFillColor(30, 64, 120);
+      doc.roundedRect(margin, 10, innerW, 13, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`ACTA N\u00b0 ${state.actaNum}`, pageW / 2, 19, { align: 'center' });
+
+      // Content area split in 2
+      const contentTop = 26;
+      const contentBottom = pageH - 12;
+      const slotH = (contentBottom - contentTop) / 2;
+
+      for (let slot = 0; slot < 2; slot++) {
+        const photoIdx = page * 2 + slot;
+        if (photoIdx >= state.photos.length) break;
+        const slotTop = contentTop + slot * slotH;
+
+        // Foto label
+        doc.setTextColor(30, 64, 120);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`FOTO N\u00b0 ${photoIdx + 1}:`, margin, slotTop + 6);
+
+        // Image
+        const imgData = state.photos[photoIdx].img;
+        const props = doc.getImageProperties(imgData);
+        const ratio = props.height / props.width;
+        const maxH = slotH - 22;
+        let iw = innerW, ih = iw * ratio;
+        if (ih > maxH) { ih = maxH; iw = ih / ratio; }
+        const ix = margin + (innerW - iw) / 2;
+        doc.addImage(imgData, 'JPEG', ix, slotTop + 9, iw, ih);
+
+        // Separator
+        const lineY = slotTop + 9 + ih + 3;
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.3);
+        doc.line(margin, lineY, pageW - margin, lineY);
+
+        // Description
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        const lines = doc.splitTextToSize(state.photos[photoIdx].desc, innerW);
+        doc.text(lines, margin, lineY + 5);
+
+        // Divider between 2 slots
+        if (slot === 0 && page * 2 + 1 < state.photos.length) {
+          doc.setDrawColor(180, 190, 220);
+          doc.setLineWidth(0.5);
+          doc.line(margin, contentTop + slotH, pageW - margin, contentTop + slotH);
+          doc.setLineWidth(0.2);
+        }
+      }
+
+      // Footer
+      doc.setFontSize(7.5);
+      doc.setTextColor(160, 160, 160);
+      doc.text(`Acta N\u00b0 ${state.actaNum}`, margin, pageH - 5);
+      doc.text(`P\u00e1gina ${page + 1} de ${totalPages}`, pageW - margin, pageH - 5, { align: 'right' });
+    }
+
+    doc.save(`${state.fileName}.pdf`);
+    showToast('✓ PDF descargado');
+  } catch (err) {
+    showToast('Error: ' + err.message, '#c0392b');
+    console.error(err);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '⬇️ Descargar PDF';
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
